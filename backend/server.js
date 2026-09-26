@@ -73,6 +73,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, error: 'Internal server error', message: err.message });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+  });
+}
+
+module.exports = app;
+
