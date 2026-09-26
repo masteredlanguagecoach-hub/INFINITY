@@ -55,16 +55,20 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/settings', settingsRoutes);
 
-// Serve frontend build (available at backend/public)
-const publicDir = path.join(__dirname, 'public');
+// Serve frontend build (available at frontend/dist or backend/public)
 const fs = require('fs');
-if (fs.existsSync(publicDir)) {
-  app.use(express.static(publicDir));
+const staticDir = fs.existsSync(path.join(__dirname, '../frontend/dist')) 
+  ? path.join(__dirname, '../frontend/dist') 
+  : path.join(__dirname, 'public');
+
+if (fs.existsSync(staticDir)) {
+  app.use(express.static(staticDir));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
-    res.sendFile(path.join(publicDir, 'index.html'));
+    res.sendFile(path.join(staticDir, 'index.html'));
   });
 }
+
 
 
 // Global error handler
