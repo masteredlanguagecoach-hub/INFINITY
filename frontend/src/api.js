@@ -1,14 +1,63 @@
 const BASE_URL = '/api';
 
+const TOKEN_KEY = 'pdc_token';
+const USER_KEY = 'pdc_user';
+
+export function getStoredToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch (e) {
+    return null;
+  }
+}
+
+export function setStoredToken(token) {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch (e) {}
+}
+
+export function getStoredUser() {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function setStoredUser(user) {
+  try {
+    if (user) {
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(USER_KEY);
+    }
+  } catch (e) {}
+}
+
 async function apiFetch(path, options = {}) {
   const url = `${BASE_URL}${path}`;
+  const token = getStoredToken();
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+    headers['x-auth-token'] = token;
+  }
+
   const fetchOptions = {
-    credentials: 'include',   // Always send session cookie
+    credentials: 'include',   // Always send session cookie when available
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    }
+    headers,
   };
 
   try {
@@ -22,7 +71,10 @@ async function apiFetch(path, options = {}) {
     }
 
     if (!response.ok || data.success === false) {
-      // Extract message from structured error { code, message } or plain string
+      if (response.status === 401) {
+        setStoredToken(null);
+        setStoredUser(null);
+      }
       const err = data.error;
       const message = (err && err.message) ? err.message
         : (typeof err === 'string') ? err
@@ -41,9 +93,33 @@ async function apiFetch(path, options = {}) {
 }
 
 export const api = {
-  login: (email, password) => apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-  logout: () => apiFetch('/auth/logout', { method: 'POST' }),
-  getMe: () => apiFetch('/auth/me'),
+  login: async (email, password) => {
+    const res = await apiFetch('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+    const token = res.token || (res.data && res.data.token);
+    const user = res.user || (res.data && res.data.user) || res.data;
+    if (token) setStoredToken(token);
+    if (user) setStoredUser(user);
+    return res;
+  },
+  
+  logout: async () => {
+    try {
+      await apiFetch('/auth/logout', { method: 'POST' });
+    } finally {
+      setStoredToken(null);
+      setStoredUser(null);
+    }
+  },
+
+  getMe: async () => {
+    const res = await apiFetch('/auth/me');
+    const user = res.user || (res.data && res.data.user) || res.data;
+    if (user) setStoredUser(user);
+    return res;
+  },
   
   getDashboard: () => apiFetch('/dashboard'),
   getDecisionCenter: () => apiFetch('/decision-center'),
@@ -66,8 +142,8 @@ export const api = {
   updateUser: (id, data) => apiFetch(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   activateUser: (id) => apiFetch(`/users/${id}/activate`, { method: 'POST' }),
   deactivateUser: (id) => apiFetch(`/users/${id}/deactivate`, { method: 'POST' }),
-  changeRole: (id, role) => apiFetch(`/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
-  resetPassword: (id, password) => apiFetch(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ password }) }),
+  changeRole: (id, role) => apiFetch(`/users/${id}/role`, { method: 'POST', body: JSON.stringify({ role, newRole: role }) }),
+  resetPassword: (id, password) => apiFetch(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ password, newPassword: password }) }),
   
   getPayments: (filters = '') => apiFetch(`/payments${filters}`),
   getPayment: (id) => apiFetch(`/payments/${id}`),
@@ -84,6 +160,6 @@ export const api = {
   
   getSettings: () => apiFetch('/settings'),
   updateSettings: (data) => apiFetch('/settings', { method: 'PUT', body: JSON.stringify(data) }),
-  testDbConnection: () => apiFetch('/settings/test-db'),
-  discoverSheets: () => apiFetch('/settings/discover')
+  testDbConnection: () => apiFetch('/settings/db-test'),
+  discoverSheets: () => apiFetch('/settings/discover-sheets')
 };

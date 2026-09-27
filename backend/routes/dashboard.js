@@ -5,13 +5,15 @@ const { requireAuth } = require('../middleware/authMiddleware');
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { userId, role, sessionId } = req.session.user;
+    const user = req.user || (req.session && req.session.user) || {};
+    const { userId, role, sessionId } = user;
     
     const response = await callAppsScript('getDashboard', { userId, role, sessionId });
     res.json(response.success !== undefined ? response : { success: true, data: response });
   } catch (error) {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
   }
+
 });
 
 module.exports = router;

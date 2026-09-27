@@ -5,10 +5,12 @@ const { requireAuth, requireRole } = require('../middleware/authMiddleware');
 
 const formatResponse = (response) => response.success !== undefined ? response : { success: true, data: response };
 
+const getUser = (req) => req.user || (req.session && req.session.user) || {};
+
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { status, limit, offset } = req.query;
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUser(req);
 
     const response = await callAppsScript('listJobs', { userId, role, sessionId, status, limit, offset });
     res.json(formatResponse(response));
@@ -20,7 +22,7 @@ router.get('/', requireAuth, async (req, res) => {
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUser(req);
 
     const response = await callAppsScript('getJob', { id, userId, role, sessionId });
     res.json(formatResponse(response));
@@ -32,7 +34,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 router.post('/', requireAuth, requireRole('ADMIN', 'MANAGER', 'DATA_ENTRY'), async (req, res) => {
   try {
     const data = req.body;
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUser(req);
 
     const response = await callAppsScript('createJob', { data, userId, role, sessionId });
     res.json(formatResponse(response));
@@ -45,7 +47,7 @@ router.put('/:id', requireAuth, requireRole('ADMIN', 'MANAGER', 'TEAM_LEADER', '
   try {
     const { id } = req.params;
     const data = req.body;
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUser(req);
 
     const response = await callAppsScript('updateJob', { jobId: id, data, userId, role, sessionId });
     res.json(formatResponse(response));
@@ -57,7 +59,7 @@ router.put('/:id', requireAuth, requireRole('ADMIN', 'MANAGER', 'TEAM_LEADER', '
 router.delete('/:id', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUser(req);
 
     const response = await callAppsScript('deleteJob', { jobId: id, userId, role, sessionId });
     res.json(formatResponse(response));
@@ -67,3 +69,4 @@ router.delete('/:id', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, 
 });
 
 module.exports = router;
+

@@ -5,9 +5,11 @@ const { requireAuth, requireRole } = require('../middleware/authMiddleware');
 
 const formatResponse = (response) => response.success !== undefined ? response : { success: true, data: response };
 
+const getUserContext = (req) => req.user || (req.session && req.session.user) || {};
+
 router.get('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUserContext(req);
     const response = await callAppsScript('getSettings', { userId, role, sessionId });
     res.json(formatResponse(response));
   } catch (error) {
@@ -18,7 +20,7 @@ router.get('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
 router.put('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
     const settings = req.body;
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUserContext(req);
     const response = await callAppsScript('updateSettings', { settings, userId, role, sessionId });
     res.json(formatResponse(response));
   } catch (error) {
@@ -28,7 +30,7 @@ router.put('/', requireAuth, requireRole('ADMIN'), async (req, res) => {
 
 router.get('/db-test', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUserContext(req);
     const response = await callAppsScript('testConnection', { userId, role, sessionId });
     res.json(formatResponse(response));
   } catch (error) {
@@ -38,7 +40,7 @@ router.get('/db-test', requireAuth, requireRole('ADMIN'), async (req, res) => {
 
 router.get('/discover-sheets', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUserContext(req);
     const response = await callAppsScript('discoverSheets', { userId, role, sessionId });
     res.json(formatResponse(response));
   } catch (error) {

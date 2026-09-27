@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { callAppsScript } = require('../lib/appsScriptClient');
-const { requireAuth } = require('../middleware/authMiddleware');
+const { requireAuth, getAuthenticatedUser } = require('../middleware/authMiddleware');
+const { createAuthToken } = require('../lib/token');
 
 router.post('/login', async (req, res) => {
   try {
@@ -14,10 +15,8 @@ router.post('/login', async (req, res) => {
     const response = await callAppsScript('login', { email, password });
     
     if (response.success && response.user) {
-      // Apps Script returns fields with exact column header names from Google Sheets
-      // Normalize to a consistent session user object
       const u = response.user;
-      req.session.user = {
+      const userObj = {
         userId: u['User ID'] || u.userId || u.id,
         name: u['Name'] || u.name,
         email: u['Email'] || u.email,
@@ -28,8 +27,15 @@ router.post('/login', async (req, res) => {
         sessionId: response.sessionId
       };
 
-      res.json({ success: true, user: req.session.user });
+      if (req.session) {
+        req.session.user = userObj;
+      }
+
+      const token = createAuthToken(userObj);
+
+      res.json({ success: true, token, user: userObj });
     } else {
+
       const errMsg = response.error || 'Invalid email or password';
       const isInactive = typeof errMsg === 'string' && errMsg.toLowerCase().includes('active');
       res.status(401).json({
@@ -71,15 +77,18 @@ router.post('/logout', requireAuth, async (req, res) => {
 });
 
 router.get('/me', requireAuth, (req, res) => {
-  res.json({ success: true, user: req.session.user });
+  const user = req.user || getAuthenticatedUser(req);
+  res.json({ success: true, user });
 });
 
 router.get('/session', (req, res) => {
-  if (req.session && req.session.user) {
-    res.json({ active: true, user: req.session.user });
+  const user = getAuthenticatedUser(req);
+  if (user) {
+    res.json({ active: true, user });
   } else {
     res.json({ active: false });
   }
 });
 
 module.exports = router;
+

@@ -1,3 +1,5 @@
+const { verifyAuthToken } = require('../lib/token');
+
 const ROLE_PERMISSIONS = {
   ADMIN: ['ADMIN', 'MANAGER', 'TEAM_LEADER', 'EDITOR', 'DATA_ENTRY', 'VIEWER'],
   MANAGER: ['MANAGER', 'TEAM_LEADER', 'EDITOR', 'DATA_ENTRY', 'VIEWER'],
@@ -8,12 +10,49 @@ const ROLE_PERMISSIONS = {
 };
 
 /**
+ * Extract authenticated user from session or Bearer token header
+ */
+function getAuthenticatedUser(req) {
+  // 1. Check active in-memory session
+  if (req.session && req.session.user) {
+    return req.session.user;
+  }
+
+  // 2. Check Authorization Bearer header
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    const user = verifyAuthToken(token);
+    if (user) {
+      // Sync back to session if session store exists
+      if (req.session) req.session.user = user;
+      return user;
+    }
+  }
+
+  // 3. Check X-Auth-Token header
+  const customHeader = req.headers['x-auth-token'];
+  if (customHeader) {
+    const user = verifyAuthToken(customHeader);
+    if (user) {
+      if (req.session) req.session.user = user;
+      return user;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Require authentication middleware
  */
 function requireAuth(req, res, next) {
-  if (!req.session || !req.session.user) {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
     return res.status(401).json({ success: false, error: 'Unauthorized', message: 'You must be logged in' });
   }
+  req.user = user;
+  if (req.session) req.session.user = user;
   next();
 }
 
@@ -23,13 +62,16 @@ function requireAuth(req, res, next) {
  */
 function requireRole(...roles) {
   return (req, res, next) => {
-    if (!req.session || !req.session.user) {
+    const user = getAuthenticatedUser(req);
+    if (!user) {
       return res.status(401).json({ success: false, error: 'Unauthorized', message: 'You must be logged in' });
     }
+    req.user = user;
+    if (req.session) req.session.user = user;
 
-    const userRole = req.session.user.role;
+    const userRole = user.role;
     
-    // Admin always has access if ADMIN is in the list or if the user is an ADMIN.
+    // Admin always has access
     if (userRole === 'ADMIN') {
       return next();
     }
@@ -46,5 +88,7 @@ function requireRole(...roles) {
 module.exports = {
   requireAuth,
   requireRole,
+  getAuthenticatedUser,
   ROLE_PERMISSIONS
 };
+

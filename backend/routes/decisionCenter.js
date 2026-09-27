@@ -7,10 +7,12 @@ const formatResponse = (response) => response.success !== undefined ? response :
 
 router.get('/', requireAuth, requireRole('ADMIN', 'MANAGER', 'TEAM_LEADER', 'VIEWER'), async (req, res) => {
   try {
-    const { userId, role, sessionId } = req.session.user;
+    const user = req.user || (req.session && req.session.user) || {};
+    const { userId, role, sessionId } = user;
     
     const response = await callAppsScript('getDecisionCenter', { userId, role, sessionId });
     res.json(formatResponse(response));
+
   } catch (error) {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
   }

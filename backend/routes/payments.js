@@ -5,10 +5,12 @@ const { requireAuth, requireRole } = require('../middleware/authMiddleware');
 
 const formatResponse = (response) => response.success !== undefined ? response : { success: true, data: response };
 
+const getUserContext = (req) => req.user || (req.session && req.session.user) || {};
+
 router.get('/', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
   try {
     const { status, limit, offset } = req.query;
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUserContext(req);
     const response = await callAppsScript('listPayments', { userId, role, sessionId, status, limit, offset });
     res.json(formatResponse(response));
   } catch (error) {
@@ -18,7 +20,7 @@ router.get('/', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) =
 
 router.get('/summary', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
   try {
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUserContext(req);
     const response = await callAppsScript('getPaymentSummary', { userId, role, sessionId });
     res.json(formatResponse(response));
   } catch (error) {
@@ -29,7 +31,7 @@ router.get('/summary', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req,
 router.get('/:id', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUserContext(req);
     const response = await callAppsScript('getPayment', { paymentId: id, userId, role, sessionId });
     res.json(formatResponse(response));
   } catch (error) {
@@ -40,7 +42,7 @@ router.get('/:id', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res
 router.post('/', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res) => {
   try {
     const data = req.body;
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUserContext(req);
     const response = await callAppsScript('createPayment', { data, userId, role, sessionId });
     res.json(formatResponse(response));
   } catch (error) {
@@ -52,7 +54,7 @@ router.put('/:id', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req, res
   try {
     const { id } = req.params;
     const data = req.body;
-    const { userId, role, sessionId } = req.session.user;
+    const { userId, role, sessionId } = getUserContext(req);
     const response = await callAppsScript('updatePayment', { paymentId: id, data, userId, role, sessionId });
     res.json(formatResponse(response));
   } catch (error) {
