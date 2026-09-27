@@ -4,7 +4,16 @@ export function renderDataTable(container, { columns, data, loading, error, onRo
     return;
   }
   if (error) {
-    container.innerHTML = `<div style="color:var(--danger); padding: 1rem;">Error loading data: ${error}</div>`;
+    let errorMsg = 'Error loading data';
+    if (typeof error === 'string') {
+      errorMsg = error;
+    } else if (typeof error === 'object' && error !== null) {
+      errorMsg = error.message || error.code || (error.error ? (error.error.message || error.error) : JSON.stringify(error));
+    }
+    if (errorMsg === '[object Object]' || !errorMsg) {
+      errorMsg = 'Error loading data from database.';
+    }
+    container.innerHTML = `<div style="color:var(--danger); padding: 1rem;">Error loading data: ${errorMsg}</div>`;
     return;
   }
   
@@ -69,4 +78,3 @@ export function renderDataTable(container, { columns, data, loading, error, onRo
   container.innerHTML = '';
   container.appendChild(tableContainer);
 }
-

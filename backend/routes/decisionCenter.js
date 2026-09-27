@@ -5,6 +5,23 @@ const { requireAuth, requireRole } = require('../middleware/authMiddleware');
 
 const formatResponse = (response) => response.success !== undefined ? response : { success: true, data: response };
 
+const sendError = (res, error, defaultMsg = 'Unable to fetch Decision Center data') => {
+  console.error('Decision Center Error:', error);
+  let message = defaultMsg;
+  let code = 'SERVER_ERROR';
+  if (error) {
+    if (typeof error.error === 'object' && error.error) {
+      message = error.error.message || defaultMsg;
+      code = error.error.code || code;
+    } else if (typeof error.error === 'string') {
+      message = error.error;
+    } else if (error.message) {
+      message = error.message;
+    }
+  }
+  res.status(500).json({ success: false, error: { code, message: String(message) } });
+};
+
 router.get('/', requireAuth, requireRole('ADMIN', 'MANAGER', 'TEAM_LEADER', 'VIEWER'), async (req, res) => {
   try {
     const user = req.user || (req.session && req.session.user) || {};
@@ -12,9 +29,8 @@ router.get('/', requireAuth, requireRole('ADMIN', 'MANAGER', 'TEAM_LEADER', 'VIE
     
     const response = await callAppsScript('getDecisionCenter', { userId, role, sessionId });
     res.json(formatResponse(response));
-
   } catch (error) {
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
+    sendError(res, error);
   }
 });
 

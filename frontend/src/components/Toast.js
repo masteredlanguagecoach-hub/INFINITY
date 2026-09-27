@@ -4,7 +4,13 @@ export function showToast(message, type = 'info') {
 
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  toast.textContent = message;
+  let text = 'Notification';
+  if (typeof message === 'string') {
+    text = message;
+  } else if (typeof message === 'object' && message !== null) {
+    text = message.message || message.error || JSON.stringify(message);
+  }
+  toast.textContent = text;
 
   container.appendChild(toast);
 
