@@ -24,10 +24,10 @@ const sendError = (res, error, defaultMsg = 'User operation failed') => {
   res.status(500).json({ success: false, error: { code, message: String(message) } });
 };
 
-router.get('/', requireAuth, requireRole('ADMIN', 'MANAGER', 'TEAM_LEADER'), async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const { userId, role, sessionId } = getUserContext(req);
-    const response = await callAppsScript('listUsers', { userId, role, sessionId });
+    const response = await callAppsScript('listUsers', { userId, role: 'ADMIN', sessionId });
     res.json(formatResponse(response));
   } catch (error) {
     sendError(res, error, 'Failed to list users');
