@@ -9,7 +9,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Email and password are required' });
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Email and password are required' } });
     }
 
     const response = await callAppsScript('login', { email, password });
@@ -35,42 +35,56 @@ router.post('/login', async (req, res) => {
 
       res.json({ success: true, token, user: userObj });
     } else {
+      const rawError = response.error || 'Invalid email or password';
+      const errMsg = typeof rawError === 'object' ? (rawError.message || JSON.stringify(rawError)) : String(rawError);
+      const isInactive = errMsg.toLowerCase().includes('active');
+      const errCode = (typeof rawError === 'object' && rawError.code) ? rawError.code : (isInactive ? 'USER_INACTIVE' : 'AUTH_FAILED');
 
-      const errMsg = response.error || 'Invalid email or password';
-      const isInactive = typeof errMsg === 'string' && errMsg.toLowerCase().includes('active');
       res.status(401).json({
         success: false,
         error: {
-          code: isInactive ? 'USER_INACTIVE' : 'AUTH_FAILED',
+          code: errCode,
           message: errMsg
         }
       });
     }
   } catch (error) {
     console.error('Login error:', error);
-    const msg = (error && error.error && error.error.message) || error.message || 'Unable to connect to authentication service.';
+    let msg = 'Unable to connect to authentication service.';
+    let code = 'SERVER_ERROR';
+    if (error) {
+      if (typeof error.error === 'object' && error.error) {
+        msg = error.error.message || msg;
+        code = error.error.code || code;
+      } else if (typeof error.error === 'string') {
+        msg = error.error;
+      } else if (error.message) {
+        msg = error.message;
+      }
+    }
     res.status(500).json({
       success: false,
-      error: { code: 'SERVER_ERROR', message: msg }
+      error: { code, message: msg }
     });
   }
 });
 
-
 router.post('/logout', requireAuth, async (req, res) => {
   try {
-    const sessionId = req.session.user.sessionId;
-    // Best-effort: invalidate Apps Script session too
+    const user = req.user || (req.session && req.session.user);
+    const sessionId = user && user.sessionId;
     if (sessionId) {
       await callAppsScript('logout', { sessionId }).catch(() => {});
     }
-    req.session.destroy((err) => {
-      if (err) console.error('Session destroy error:', err);
-    });
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) console.error('Session destroy error:', err);
+      });
+    }
     res.clearCookie('connect.sid');
     res.json({ success: true, message: 'Logged out successfully' });
   } catch (error) {
-    req.session.destroy();
+    if (req.session) req.session.destroy();
     res.clearCookie('connect.sid');
     res.json({ success: true, message: 'Logged out' });
   }
@@ -91,4 +105,3 @@ router.get('/session', (req, res) => {
 });
 
 module.exports = router;
-

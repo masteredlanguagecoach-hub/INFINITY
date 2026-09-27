@@ -71,23 +71,41 @@ async function apiFetch(path, options = {}) {
     }
 
     if (!response.ok || data.success === false) {
-      if (response.status === 401) {
+      if (response.status === 401 && path !== '/auth/login') {
         setStoredToken(null);
         setStoredUser(null);
       }
+      
       const err = data.error;
-      const message = (err && err.message) ? err.message
-        : (typeof err === 'string') ? err
-        : data.message || `Request failed (${response.status})`;
-      const e = new Error(message);
-      e.code = (err && err.code) || null;
+      let message = 'Request failed';
+      let code = null;
+
+      if (err) {
+        if (typeof err === 'string') {
+          message = err;
+        } else if (typeof err === 'object') {
+          message = err.message || err.error || err.code || JSON.stringify(err);
+          code = err.code || null;
+        }
+      } else if (data.message) {
+        message = typeof data.message === 'string' ? data.message : JSON.stringify(data.message);
+      } else {
+        message = `Request failed (${response.status})`;
+      }
+
+      if (typeof message === 'object') {
+        message = JSON.stringify(message);
+      }
+
+      const e = new Error(String(message));
+      e.code = code;
       e.statusCode = response.status;
       throw e;
     }
 
     return data;
   } catch (error) {
-    console.error(`API Error on ${path}:`, error.message);
+    console.error(`API Error on ${path}:`, error.message || error);
     throw error;
   }
 }
@@ -96,7 +114,7 @@ export const api = {
   login: async (email, password) => {
     const res = await apiFetch('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email: email.trim(), password })
     });
     const token = res.token || (res.data && res.data.token);
     const user = res.user || (res.data && res.data.user) || res.data;

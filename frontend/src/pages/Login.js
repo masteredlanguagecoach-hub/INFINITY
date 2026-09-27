@@ -84,7 +84,17 @@ export const Login = {
           throw new Error('Invalid login response from server');
         }
       } catch (error) {
-        errorDiv.textContent = error.message || 'Authentication failed. Please check your credentials.';
+        let msg = 'Authentication failed. Please check your credentials.';
+        if (error) {
+          if (typeof error.message === 'string' && error.message.trim() && error.message !== '[object Object]') {
+            msg = error.message;
+          } else if (typeof error.error === 'string') {
+            msg = error.error;
+          } else if (typeof error === 'string') {
+            msg = error;
+          }
+        }
+        errorDiv.textContent = msg;
         errorDiv.style.display = 'block';
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span>Sign In to Dashboard</span>';
@@ -92,4 +102,3 @@ export const Login = {
     });
   }
 };
-
