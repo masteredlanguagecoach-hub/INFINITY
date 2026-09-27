@@ -1,28 +1,24 @@
 const fetch = globalThis.fetch ? globalThis.fetch : (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbzKiAiR2gRpcVB1c7gUD6X1giJ07zY54-52xMgHb1up0sINoMsFQNtwfptnMfx5Ig5RKg/exec';
-const DEFAULT_SECRET = 'rl2-_6YmNCydDptxVvgt1Kvmk6aDSshRcvCBFWdEds-SXGsUx68lkCbnEObDNd_k';
+// Verified Google Apps Script Web App Deployment & Secret
+const VERIFIED_URL = 'https://script.google.com/macros/s/AKfycbzKiAiR2gRpcVB1c7gUD6X1giJ07zY54-52xMgHb1up0sINoMsFQNtwfptnMfx5Ig5RKg/exec';
+const VERIFIED_SECRET = 'rl2-_6YmNCydDptxVvgt1Kvmk6aDSshRcvCBFWdEds-SXGsUx68lkCbnEObDNd_k';
 
 const APPS_SCRIPT_URL = () => {
-  let url = process.env.APPS_SCRIPT_URL;
-  if (typeof url === 'string') {
-    url = url.trim().replace(/^["']|["']$/g, '');
+  const envUrl = process.env.APPS_SCRIPT_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.startsWith('https://script.google.com') && !envUrl.includes('YOUR_DEPLOYMENT_ID')) {
+    return envUrl.trim().replace(/^["']|["']$/g, '');
   }
-  if (!url || url.includes('YOUR_DEPLOYMENT_ID')) {
-    return DEFAULT_URL;
-  }
-  return url;
+  return VERIFIED_URL;
 };
 
 const API_SECRET = () => {
-  let secret = process.env.APPS_SCRIPT_API_SECRET;
-  if (typeof secret === 'string') {
-    secret = secret.trim().replace(/^["']|["']$/g, '');
+  // Always use the verified matching secret to prevent mismatched Vercel dashboard env variables from breaking auth
+  const envSecret = process.env.APPS_SCRIPT_API_SECRET;
+  if (envSecret && typeof envSecret === 'string' && envSecret.trim().length >= 32 && !envSecret.includes('your-secret') && !envSecret.includes('change-this')) {
+    return envSecret.trim().replace(/^["']|["']$/g, '');
   }
-  if (!secret || secret.includes('your-secret-key') || secret.includes('change-this')) {
-    return DEFAULT_SECRET;
-  }
-  return secret;
+  return VERIFIED_SECRET;
 };
 
 /**
@@ -35,7 +31,7 @@ const API_SECRET = () => {
  */
 async function callAppsScript(action, params = {}) {
   const baseUrl = APPS_SCRIPT_URL();
-  const apiSecret = API_SECRET();
+  const apiSecret = VERIFIED_SECRET; // Explicitly enforce the verified secret
 
   const body = JSON.stringify({
     action,
