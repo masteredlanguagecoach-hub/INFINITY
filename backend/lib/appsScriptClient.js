@@ -4,11 +4,25 @@ const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbzKiAiR2gRpcVB1c7gU
 const DEFAULT_SECRET = 'rl2-_6YmNCydDptxVvgt1Kvmk6aDSshRcvCBFWdEds-SXGsUx68lkCbnEObDNd_k';
 
 const APPS_SCRIPT_URL = () => {
-  return process.env.APPS_SCRIPT_URL || DEFAULT_URL;
+  let url = process.env.APPS_SCRIPT_URL;
+  if (typeof url === 'string') {
+    url = url.trim().replace(/^["']|["']$/g, '');
+  }
+  if (!url || url.includes('YOUR_DEPLOYMENT_ID')) {
+    return DEFAULT_URL;
+  }
+  return url;
 };
 
 const API_SECRET = () => {
-  return process.env.APPS_SCRIPT_API_SECRET || DEFAULT_SECRET;
+  let secret = process.env.APPS_SCRIPT_API_SECRET;
+  if (typeof secret === 'string') {
+    secret = secret.trim().replace(/^["']|["']$/g, '');
+  }
+  if (!secret || secret.includes('your-secret-key') || secret.includes('change-this')) {
+    return DEFAULT_SECRET;
+  }
+  return secret;
 };
 
 /**
