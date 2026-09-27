@@ -13,14 +13,14 @@ const API_SECRET = () => {
 
 /**
  * Call the Google Apps Script Web App (server-to-server only).
- * Always uses POST so the API secret stays in the request body, never in the URL.
+ * Handles Google's 302/303 redirect cycle to ensure POST bodies are never dropped.
  *
  * @param {string} action  - The Apps Script action name
  * @param {object} params  - Action parameters (merged into POST body)
  * @returns {Promise<object>} - Parsed JSON response from Apps Script
  */
 async function callAppsScript(action, params = {}) {
-  const url = APPS_SCRIPT_URL();
+  const baseUrl = APPS_SCRIPT_URL();
   const apiSecret = API_SECRET();
 
   const body = JSON.stringify({
@@ -29,21 +29,41 @@ async function callAppsScript(action, params = {}) {
     ...params
   });
 
+  // Attach query params on the initial URL as backup for redirect scenarios
+  const queryParams = new URLSearchParams();
+  queryParams.append('action', action);
+  queryParams.append('apiSecret', apiSecret);
+  if (params && params.sessionId) queryParams.append('sessionId', params.sessionId);
+  if (params && params.userId) queryParams.append('userId', params.userId);
+
+  const url = `${baseUrl}?${queryParams.toString()}`;
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 35000);
 
   try {
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body,
-      redirect: 'follow',   // Apps Script web apps redirect on first hit
+      redirect: 'manual', // Explicitly handle Google Apps Script 302 redirect
       signal: controller.signal
     });
 
+    // Follow redirect if Google Apps Script returns 301, 302, 303, 307, 308
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const redirectLocation = response.headers.get('location');
+      if (redirectLocation) {
+        response = await fetch(redirectLocation, {
+          method: 'GET',
+          signal: controller.signal
+        });
+      }
+    }
+
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
+    if (!response.ok && response.status !== 302) {
       throw new Error(`Apps Script HTTP error: ${response.status} ${response.statusText}`);
     }
 
