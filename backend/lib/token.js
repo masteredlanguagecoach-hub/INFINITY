@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 
-const SECRET = () => process.env.SESSION_SECRET || 'pdc-fallback-secret-key-32chars!';
+const DEFAULT_SECRET = 'AR6aDumWSOzszBigm1rbvVDGdiA2uAXspUvrVKWOsKvyDK0gp7YVeX9lmrs1QsNJ';
+const SECRET = () => process.env.SESSION_SECRET || DEFAULT_SECRET;
 
 /**
  * Generate a cryptographically signed stateless token (HMAC-SHA256)
@@ -10,7 +11,7 @@ const SECRET = () => process.env.SESSION_SECRET || 'pdc-fallback-secret-key-32ch
 function createAuthToken(user) {
   const payload = {
     ...user,
-    exp: Date.now() + (6 * 60 * 60 * 1000) // 6 hours
+    exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
   };
 
   const payloadBase64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
@@ -40,8 +41,11 @@ function verifyAuthToken(token) {
     .update(payloadBase64)
     .digest('base64url');
 
-  // Constant-time comparison to prevent timing attacks
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expectedSignature);
+
+  // Buffer length check before constant-time comparison to avoid exception
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
     return null;
   }
 

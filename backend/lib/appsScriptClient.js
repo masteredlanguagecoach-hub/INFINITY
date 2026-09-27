@@ -1,17 +1,15 @@
 const fetch = globalThis.fetch ? globalThis.fetch : (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbzKiAiR2gRpcVB1c7gUD6X1giJ07zY54-52xMgHb1up0sINoMsFQNtwfptnMfx5Ig5RKg/exec';
+const DEFAULT_SECRET = 'rl2-_6YmNCydDptxVvgt1Kvmk6aDSshRcvCBFWdEds-SXGsUx68lkCbnEObDNd_k';
+
 const APPS_SCRIPT_URL = () => {
-  const url = process.env.APPS_SCRIPT_URL;
-  if (!url) throw new Error('APPS_SCRIPT_URL is missing in environment variables.');
-  return url;
+  return process.env.APPS_SCRIPT_URL || DEFAULT_URL;
 };
 
 const API_SECRET = () => {
-  const secret = process.env.APPS_SCRIPT_API_SECRET;
-  if (!secret) throw new Error('APPS_SCRIPT_API_SECRET is missing in environment variables.');
-  return secret;
+  return process.env.APPS_SCRIPT_API_SECRET || DEFAULT_SECRET;
 };
-
 
 /**
  * Call the Google Apps Script Web App (server-to-server only).
@@ -32,7 +30,7 @@ async function callAppsScript(action, params = {}) {
   });
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 35000);
 
   try {
     const response = await fetch(url, {
@@ -66,7 +64,7 @@ async function callAppsScript(action, params = {}) {
     if (error.name === 'AbortError') {
       throw {
         success: false,
-        error: { code: 'TIMEOUT', message: 'Apps Script request timed out after 30 seconds.' }
+        error: { code: 'TIMEOUT', message: 'Apps Script request timed out after 35 seconds.' }
       };
     }
 
@@ -90,4 +88,3 @@ async function callAppsScript(action, params = {}) {
 }
 
 module.exports = { callAppsScript };
-
