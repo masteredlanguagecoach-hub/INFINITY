@@ -1,16 +1,17 @@
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const fetch = globalThis.fetch ? globalThis.fetch : (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
 const APPS_SCRIPT_URL = () => {
   const url = process.env.APPS_SCRIPT_URL;
-  if (!url) throw new Error('APPS_SCRIPT_URL is not configured in environment variables.');
+  if (!url) throw new Error('APPS_SCRIPT_URL is missing in environment variables.');
   return url;
 };
 
 const API_SECRET = () => {
   const secret = process.env.APPS_SCRIPT_API_SECRET;
-  if (!secret) throw new Error('APPS_SCRIPT_API_SECRET is not configured in environment variables.');
+  if (!secret) throw new Error('APPS_SCRIPT_API_SECRET is missing in environment variables.');
   return secret;
 };
+
 
 /**
  * Call the Google Apps Script Web App (server-to-server only).

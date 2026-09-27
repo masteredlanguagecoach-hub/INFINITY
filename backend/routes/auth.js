@@ -42,12 +42,14 @@ router.post('/login', async (req, res) => {
     }
   } catch (error) {
     console.error('Login error:', error);
+    const msg = (error && error.error && error.error.message) || error.message || 'Unable to connect to authentication service.';
     res.status(500).json({
       success: false,
-      error: { code: 'SERVER_ERROR', message: 'Unable to connect to authentication service.' }
+      error: { code: 'SERVER_ERROR', message: msg }
     });
   }
 });
+
 
 router.post('/logout', requireAuth, async (req, res) => {
   try {
