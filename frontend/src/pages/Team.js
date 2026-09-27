@@ -5,7 +5,10 @@ import { router } from '../router.js';
 export const Team = {
   async render(container) {
     container.innerHTML = `
-      <h2>Team Overview</h2>
+      <div class="page-header">
+        <h2>Production Team Overview</h2>
+        <span class="badge badge-primary">Staff Workload & Capacity</span>
+      </div>
       <div id="team-content">
         <div class="loader-container"><div class="loader"></div></div>
       </div>
@@ -13,7 +16,8 @@ export const Team = {
 
     try {
       const res = await api.getDecisionCenter();
-      const teamData = res.data.employeeWorkload;
+      const raw = res.data || res || {};
+      const teamData = raw.employeeStats || raw.employeeWorkload || raw.employees || [];
 
       const html = `
         <div class="card">
@@ -25,39 +29,43 @@ export const Team = {
 
       renderDataTable(document.getElementById('team-table'), {
         columns: [
-          { label: 'Employee', key: 'name' },
-          { label: 'Department', key: 'department' },
-          { label: 'Open Tasks', key: 'openTasks' },
-          { label: 'Capacity', key: 'capacity' },
-          { label: 'Utilization', render: (r) => {
-            const util = r.utilization;
-            const color = util > 90 ? 'var(--danger)' : (util > 75 ? 'var(--warning)' : 'var(--success)');
-            return `<div style="display:flex;align-items:center;gap:0.5rem">
-              <div style="width:50px">${util}%</div>
-              <div class="progress-bar-bg" style="width:100px;margin:0"><div class="progress-bar-fill" style="background-color:${color};width:${Math.min(util,100)}%"></div></div>
-            </div>`;
+          { label: 'Employee', render: r => `<strong>${r.name || r.userName || '-'}</strong>` },
+          { label: 'Department', render: r => r.department || r.Department || 'Video Editing' },
+          { label: 'Open Tasks', render: r => r.openCount ?? r.openTasks ?? 0 },
+          { label: 'Completed Tasks', render: r => r.completedCount ?? r.completedTasks ?? 0 },
+          { label: 'Overdue Tasks', render: (r) => {
+            const count = r.overdueCount ?? r.overdueTasks ?? 0;
+            return `<span style="color:${count > 0 ? 'var(--danger)' : 'inherit'}; font-weight:${count > 0 ? 'bold' : 'normal'}">${count}</span>`;
           }},
-          { label: 'Completed', key: 'completedTasks' },
-          { label: 'Overdue', render: (r) => `<span style="color:${r.overdueTasks>0?'var(--danger)':'inherit'}">${r.overdueTasks}</span>` },
-          { label: 'Signal', render: (r) => `<span class="badge badge-${r.signal.includes('OVERLOADED') ? 'OVERLOADED' : (r.signal==='HIGH'?'HIGH-SIGNAL':'AVAILABLE')}">${r.signal}</span>` }
+          { label: 'Capacity', render: r => r.capacity ?? 40 },
+          { label: 'Utilization', render: (r) => {
+            const util = r.utilizationPercent !== undefined ? r.utilizationPercent : (r.utilization ?? 0);
+            const color = util >= 100 ? 'progress-red' : (util >= 80 ? 'progress-orange' : 'progress-green');
+            return `
+              <div style="min-width:120px;">
+                <div style="font-size:0.8rem; margin-bottom:2px;">${util}%</div>
+                <div class="progress-bar-bg" style="height:6px; margin:0;">
+                  <div class="progress-bar-fill ${color}" style="width:${Math.min(util, 100)}%;"></div>
+                </div>
+              </div>
+            `;
+          }},
+          { label: 'Workload Signal', render: (r) => {
+            const signal = r.signal || (r.utilizationPercent >= 100 ? 'OVERLOADED' : (r.utilizationPercent >= 80 ? 'HIGH' : 'AVAILABLE'));
+            const badge = signal === 'OVERLOADED' ? 'badge-danger' : (signal === 'HIGH' ? 'badge-warning' : 'badge-success');
+            return `<span class="badge ${badge}">${signal}</span>`;
+          }}
         ],
         data: teamData,
+        emptyMessage: 'No team workload records found.',
         onRowClick: (row) => {
-          router.navigate(`/tasks?assigneeId=${row.id}`); // This requires router support for query params, or just navigate to tasks and let user filter.
-          // For simplicity, just navigate to tasks
           window.location.hash = '#/tasks';
-          setTimeout(() => {
-            const sel = document.getElementById('filter-assignee');
-            if (sel) {
-              sel.value = row.id;
-              sel.dispatchEvent(new Event('change'));
-            }
-          }, 100);
         }
       });
       
     } catch (err) {
-      document.getElementById('team-content').innerHTML = `<div style="color:var(--danger)">Failed to load team data: ${err.message}</div>`;
+      const msg = (typeof err === 'object') ? (err.message || JSON.stringify(err)) : String(err);
+      document.getElementById('team-content').innerHTML = `<div style="color:var(--danger); padding:1rem;">Failed to load team data: ${msg}</div>`;
     }
   }
 };
